@@ -1,45 +1,42 @@
 import { createSlice } from "@reduxjs/toolkit"
-import lodash from "lodash"
-import { stringSimilarity } from "string-similarity-js"
+import { uniq, sortBy } from "lodash"
+import { stringSimilarity as getSimScore } from "string-similarity-js"
 import data from "../../data"
 import { loremIpsum } from "lorem-ipsum";
 
 const DEFAULT_CATEGORY = "All"
 
-// Add a description for each product
-data.forEach((d) => d.description = loremIpsum())
+data.forEach((d) => d.description = loremIpsum())// Initialize a description for each product
 
 export const { actions, reducer } = createSlice({
     name : "products",
     initialState : {
         searchTerm : "", 
-        products : data, productsBySearchAndCategory : data,
-        categories : [DEFAULT_CATEGORY, ...lodash.uniq(data.map(p => p.category))], 
+        products : data, productsFromSearch : data,
+        categories : [DEFAULT_CATEGORY, ...(uniq(data.map(p => p.category))).sort()], 
         selectedCategory : [DEFAULT_CATEGORY],
         single : data[0], singleSimilarProducts : [],
     },
     reducers : {
         setSearchTerm (state, { payload:searchTerm }) {
             // Reset Nav bar    
-            state.productsBySearchAndCategory = state.products
+            state.productsFromSearch = state.products
             state.selectedCategory = DEFAULT_CATEGORY
             // Search operations
-            state.searchTerm = searchTerm
-            if (searchTerm.length === 0) {
-                state.productsBySearchAndCategory = data
-            } else {
-                state.productsBySearchAndCategory.forEach((p) => {
-                    p.simScore = stringSimilarity(`${p.name} ${p.category}`, searchTerm)
+            state.searchTerm = searchTerm          
+            if (searchTerm.length > 0) {
+                state.productsFromSearch.forEach(p => {
+                    p.simScore = getSimScore(`${p.name} ${p.category}`, searchTerm)
                 })
-                state.productsBySearchAndCategory = state.productsBySearchAndCategory.sort((a, b) => b.simScore - a.simScore)                
-            }            
+                state.productsFromSearch = sortBy(state.productsFromSearch, 'simScore').reverse()
+            } else {
+                state.productsFromSearch = data
+            }
         },
         setSelectedCategory (state, { payload:category }) {
-            // reset navbar
-            state.searchTerm = ""
-            // select category operation
+            state.searchTerm = ""// reset navbar
             state.selectedCategory = category
-            state.productsBySearchAndCategory = state.products.filter((p) => (
+            state.productsFromSearch = state.products.filter((p) => (
                 (category === DEFAULT_CATEGORY) ? true : (p.category === category)
             ))
         },
